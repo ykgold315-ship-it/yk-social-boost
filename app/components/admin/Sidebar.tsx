@@ -10,15 +10,13 @@ import {
   Layers3,
   FolderTree,
   Wallet,
-  Headphones,
+  LifeBuoy,
   CreditCard,
   Cpu,
   Settings,
   Server,
   Bell,
-  Database,
-  Link2,
-  Percent,
+  DollarSign,
 } from "lucide-react";
 
 const menu = [
@@ -48,6 +46,26 @@ const menu = [
     icon: Layers3,
   },
   {
+    name: "Provider Services",
+    href: "/admin/provider-services",
+    icon: Server,
+  },
+  {
+    name: "Service Mapper",
+    href: "/admin/service-mapper",
+    icon: Cpu,
+  },
+  {
+    name: "Pricing",
+    href: "/admin/pricing",
+    icon: DollarSign,
+  },
+  {
+    name: "Pricing Rules",
+    href: "/admin/pricing-rules",
+    icon: DollarSign,
+  },
+  {
     name: "Wallet",
     href: "/admin/wallet",
     icon: Wallet,
@@ -55,7 +73,7 @@ const menu = [
   {
     name: "Support",
     href: "/admin/support",
-    icon: Headphones,
+    icon: LifeBuoy,
   },
   {
     name: "Deposits",
@@ -71,21 +89,6 @@ const menu = [
     name: "Providers",
     href: "/admin/providers",
     icon: Server,
-  },
-  {
-    name: "Provider Services",
-    href: "/admin/provider-services",
-    icon: Database,
-  },
-  {
-    name: "Service Mapper",
-    href: "/admin/service-mapper",
-    icon: Link2,
-  },
-  {
-    name: "Profit Rules",
-    href: "/admin/profit-rules",
-    icon: Percent,
   },
   {
     name: "Notifications",
@@ -116,7 +119,6 @@ export default function Sidebar() {
       <nav className="mt-10 space-y-2">
 
         {menu.map((item) => {
-
           const Icon = item.icon;
 
           const active =

@@ -42,25 +42,15 @@ export default async function ProvidersPage() {
 
             <tr>
 
-              <th className="px-6 py-4 text-left">
-                Name
-              </th>
+              <th className="px-6 py-4 text-left">Name</th>
 
-              <th className="px-6 py-4 text-left">
-                Status
-              </th>
+              <th className="px-6 py-4 text-left">Status</th>
 
-              <th className="px-6 py-4 text-left">
-                Priority
-              </th>
+              <th className="px-6 py-4 text-left">Priority</th>
 
-              <th className="px-6 py-4 text-left">
-                Balance
-              </th>
+              <th className="px-6 py-4 text-left">Balance</th>
 
-              <th className="px-6 py-4 text-left">
-                Actions
-              </th>
+              <th className="px-6 py-4 text-left">Actions</th>
 
             </tr>
 
@@ -75,7 +65,7 @@ export default async function ProvidersPage() {
                 className="border-b border-slate-800"
               >
 
-                <td className="px-6 py-5">
+                <td className="px-6 py-5 font-medium">
                   {provider.name}
                 </td>
 
@@ -98,14 +88,32 @@ export default async function ProvidersPage() {
                 </td>
 
                 <td className="px-6 py-5">
-                  £{provider.balance}
+                  £{provider.balance ?? 0}
                 </td>
 
                 <td className="px-6 py-5">
 
-                  <ImportServicesButton
-                    providerId={provider.id}
-                  />
+                  <div className="flex flex-wrap gap-2">
+
+                    <Link
+                      href={`/admin/providers/${provider.id}`}
+                      className="rounded-lg bg-slate-700 px-3 py-2 text-sm hover:bg-slate-600"
+                    >
+                      Details
+                    </Link>
+
+                    <ImportServicesButton
+                      providerId={provider.id}
+                    />
+
+                    <Link
+                      href={`/admin/providers/${provider.id}/edit`}
+                      className="rounded-lg bg-yellow-600 px-3 py-2 text-sm hover:bg-yellow-700"
+                    >
+                      Edit
+                    </Link>
+
+                  </div>
 
                 </td>
 

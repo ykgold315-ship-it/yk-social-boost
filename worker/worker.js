@@ -1,14 +1,19 @@
-const delivery = require("./core/delivery");
-const generateTasks = require("./core/taskGenerator");
 require("dotenv").config();
 
 const supabase = require("./config");
+const { sendOrder } = require("./core/sendOrder");
 
 console.log("=================================");
-console.log("YK Automation Worker Started...");
+console.log("YK SMM Worker Started...");
 console.log("=================================");
 
 async function processJobs() {
+
+  let job;
+  let order;
+  let service;
+  let provider;
+
   try {
 
     const { data: jobs, error } = await supabase
@@ -28,128 +33,175 @@ async function processJobs() {
       return;
     }
 
-    const job = jobs[0];
+    job = jobs[0];
 
     console.log(`Processing Job #${job.id}`);
 
-    // Update Job
     await supabase
       .from("automation_jobs")
       .update({
         status: "Processing",
-        progress: 10,
+        progress: 5,
         started_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", job.id);
 
-    // Load Order
-    const { data: order, error: orderError } =
-      await supabase
-        .from("orders")
-        .select("*")
-        .eq("id", job.order_id)
-        .single();
+    const {
+      data: orderData,
+      error: orderError,
+    } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("id", job.order_id)
+      .single();
 
-    if (orderError || !order) {
+    if (orderError || !orderData) {
       throw new Error("Order not found.");
     }
 
-    // Load Service
-    const { data: service, error: serviceError } =
-      await supabase
-        .from("services")
-        .select("*")
-        .eq("id", order.service_id)
-        .single();
+    order = orderData;
 
-    if (serviceError || !service) {
-      throw new Error("Service not found.");
+    // Find provider mapping
+const {
+  data: providerService,
+  error: mappingError,
+} = await supabase
+  .from("provider_services")
+  .select(`
+      *,
+      providers(*)
+  `)
+  .eq("service_id", order.service_id)
+  .single();
+
+if (mappingError || !providerService) {
+  throw new Error("Provider mapping not found.");
+}
+
+provider = providerService.providers;
+
+if (!provider) {
+  throw new Error("Provider not found.");
+}
+
+if (provider.status !== "Active") {
+  throw new Error("Provider is inactive.");
+}
+
+console.log("=================================");
+console.log("Finding Provider Mapping...");
+console.log("=================================");
+console.log("Provider:", provider.name);
+console.log(
+  "Provider Service:",
+  providerService.provider_service_id
+);
+
+console.log("=================================");
+console.log("Sending Order To Provider...");
+console.log("=================================");
+
+const result = await sendOrder(
+  provider,
+  providerService,
+  order
+);
+
+console.log("Provider Response:");
+console.log(result);
+
+if (!result) {
+  throw new Error("Provider returned nothing.");
+}
+
+if (result.error) {
+  throw new Error(result.error);
+}
+
+if (!result.order) {
+  throw new Error("Provider did not return an order ID.");
+}
+
+    console.log(result);
+
+    if (!result || result.error) {
+      throw new Error(
+        result?.error || "Provider API failed."
+      );
     }
 
-    // Update Order
     await supabase
       .from("orders")
       .update({
+       provider_order_id: String(result.order),
         status: "Processing",
-        progress: 20,
+        progress: 25,
         updated_at: new Date().toISOString(),
       })
       .eq("id", order.id);
 
-    // Generate Tasks
-    const tasks = await generateTasks(
-      job,
-      order,
-      service,
-      supabase
-    );
+    await supabase
+      .from("provider_orders")
+      .insert({
+        provider_id: provider.id,
+        order_id: order.id,
+        provider_order_id: String(result.order),
+        status: "Pending",
+        created_at: new Date().toISOString(),
+      });
 
-    console.log(`${tasks.length} tasks ready.`);
-
-    // Process Tasks
-    let completed = 0;
-
-    for (const task of tasks) {
-
-      await delivery(
-        task,
-        order,
-        job,
-        supabase
-      );
-
-      completed++;
-
-      const progress = Math.floor(
-        (completed / tasks.length) * 100
-      );
-
-      await supabase
-        .from("automation_jobs")
-        .update({
-          progress,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", job.id);
-
-      await supabase
-        .from("orders")
-        .update({
-          progress,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", order.id);
-
-    }
-
-    // Finish Job
     await supabase
       .from("automation_jobs")
       .update({
-        status: "Completed",
+        status: "Submitted",
         progress: 100,
         completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", job.id);
 
-    await supabase
-      .from("orders")
-      .update({
-        status: "Completed",
-        progress: 100,
-        remains: 0,
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", order.id);
-
-    console.log(`✅ Job #${job.id} Completed`);
+    console.log(
+      `✅ Order #${order.id} submitted successfully.`
+    );
 
   } catch (err) {
+
+    console.log("=================================");
+    console.log("WORKER ERROR");
+    console.log("=================================");
+
     console.error(err);
+
+    if (err.stack) {
+      console.error(err.stack);
+    }
+
+    if (job) {
+      await supabase
+        .from("automation_jobs")
+        .update({
+          status: "Queued",
+          progress: 0,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+    }
+
+    if (order) {
+      await supabase
+        .from("orders")
+        .update({
+          status: "Failed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", order.id);
+    }
+
+    console.log("=================================");
+
   }
+
 }
 
 processJobs();

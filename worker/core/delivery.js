@@ -38,17 +38,32 @@ module.exports = async function delivery(
   );
 
   // Send Order to JAP
-  const result = await sendOrder(
-    provider,
-    providerService,
-    order
+ console.log("=================================");
+console.log("Sending Order To Provider...");
+console.log("=================================");
+
+const result = await sendOrder(
+  provider,
+  providerService,
+  order
+);
+
+console.log("Provider Response:");
+console.log(result);
+
+if (!result) {
+  throw new Error("Provider returned nothing.");
+}
+
+if (result.error) {
+  throw new Error(result.error);
+}
+
+if (!result.order) {
+  throw new Error(
+    "Provider did not return an order ID."
   );
-
-  console.log(result);
-
-  if (result.error) {
-    throw new Error(result.error);
-  }
+}
 
   // Save provider order
   await supabase

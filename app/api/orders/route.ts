@@ -3,6 +3,7 @@ import { createApiClient } from "@/lib/api-client";
 import { createNotification } from "@/lib/notifications";
 
 export async function POST(req: Request) {
+  console.log("========== NEW ORDER API ==========");
   try {
     const supabase = await createApiClient();
 
@@ -93,15 +94,23 @@ export async function POST(req: Request) {
     }
 
     // Queue Automation
-    await supabase
-      .from("automation_jobs")
-      .insert({
-        order_id: order.id,
-        user_id: order.user_id,
-        service_id: order.service_id,
-        status: "Queued",
-        progress: 0,
-      });
+   const { error: jobError } = await supabase
+  .from("automation_jobs")
+  .insert({
+    order_id: order.id,
+    user_id: order.user_id,
+    service_id: order.service_id,
+    status: "Queued",
+    progress: 0,
+  });
+
+if (jobError) {
+  console.error("Automation Job Error:", jobError);
+  return NextResponse.json(
+    { error: jobError.message },
+    { status: 500 }
+  );
+}
 
     // Notification
     await createNotification({

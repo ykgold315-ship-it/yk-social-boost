@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Hero() {
   return (
     <section className="relative overflow-hidden pt-40 pb-32 px-8">
@@ -19,20 +21,24 @@ export default function Hero() {
         </h1>
 
         <p className="mt-8 text-xl text-gray-300 max-w-3xl mx-auto">
-          Premium SMM Panel helping creators, influencers, agencies and
-          businesses grow across Instagram, TikTok, YouTube, Facebook,
-          Telegram and more.
+          Premium SMM Panel helping creators, influencers, agencies and businesses grow across Instagram, TikTok, YouTube, Facebook, Telegram and more.
         </p>
 
         <div className="mt-12 flex justify-center gap-6 flex-wrap">
 
-          <button className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-400 px-8 py-4 font-bold hover:scale-105 transition">
+          <Link
+            href="/register"
+            className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-400 px-8 py-4 font-bold hover:scale-105 transition"
+          >
             Get Started
-          </button>
+          </Link>
 
-          <button className="rounded-xl border border-slate-700 px-8 py-4 hover:bg-slate-900 transition">
+          <Link
+            href="/services"
+            className="rounded-xl border border-slate-700 px-8 py-4 hover:bg-slate-900 transition"
+          >
             View Services
-          </button>
+          </Link>
 
         </div>
 

@@ -1,21 +1,29 @@
 import { NextResponse } from "next/server";
 import { adminClient } from "@/lib/admin-client";
 
+export async function GET() {
+  const { data, error } = await adminClient
+    .from("pricing_rules")
+    .select("*")
+    .order("id");
+
+  if (error) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json(data);
+}
+
 export async function POST(request: Request) {
   try {
-    const {
-      serviceId,
-      providerServiceId,
-    } = await request.json();
+    const body = await request.json();
 
-    const supabase = adminClient;
-
-    const { error } = await supabase
-      .from("services")
-      .update({
-        provider_service_id: providerServiceId,
-      })
-      .eq("id", serviceId);
+    const { error } = await adminClient
+      .from("pricing_rules")
+      .insert(body);
 
     if (error) {
       return NextResponse.json(
