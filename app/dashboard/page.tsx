@@ -16,11 +16,11 @@ export default async function DashboardPage() {
 
   if (!user) return null;
 
-  const [{ data: wallet }, { data: orders }, { data: profile }] =
+  const [{ data: credits }, { data: orders }, { data: profile }] =
     await Promise.all([
       supabase
-        .from("wallets")
-        .select("balance")
+        .from("credits")
+        .select("credits")
         .eq("user_id", user.id)
         .single(),
 
@@ -38,12 +38,14 @@ export default async function DashboardPage() {
     ]);
 
   const totalOrders = orders?.length ?? 0;
-  const pendingOrders =
-    orders?.filter((o) => o.status === "Pending").length ?? 0;
-  const completedOrders =
-    orders?.filter((o) => o.status === "Completed").length ?? 0;
 
-  const balance = wallet?.balance ?? 0;
+  const pendingOrders =
+    orders?.filter((o: any) => o.status === "Pending").length ?? 0;
+
+  const completedOrders =
+    orders?.filter((o: any) => o.status === "Completed").length ?? 0;
+
+  const creditBalance = credits?.credits ?? 0;
 
   return (
     <>
@@ -62,9 +64,10 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+
         <StatCard
-          title="Wallet Balance"
-          value={`£${Number(balance).toFixed(2)}`}
+          title="Credits"
+          value={Number(creditBalance).toLocaleString()}
           icon={<Wallet />}
           color="text-green-400"
         />
@@ -89,22 +92,28 @@ export default async function DashboardPage() {
           icon={<CheckCircle />}
           color="text-emerald-400"
         />
+
       </div>
 
       <div className="grid lg:grid-cols-2 gap-8 mt-10">
 
         <div className="rounded-3xl bg-slate-900 border border-slate-800 p-8">
+
           <h2 className="text-2xl font-bold mb-6">
             Recent Orders
           </h2>
 
           {orders?.length ? (
+
             <div className="space-y-4">
-              {orders.slice(0, 5).map((order) => (
+
+              {orders.slice(0, 5).map((order: any) => (
+
                 <div
                   key={order.id}
                   className="flex items-center justify-between rounded-xl bg-slate-800 p-4"
                 >
+
                   <div>
                     <p className="font-semibold">
                       Order #{order.id}
@@ -118,17 +127,25 @@ export default async function DashboardPage() {
                   <span className="rounded-lg bg-blue-600 px-3 py-1 text-sm">
                     {order.status}
                   </span>
+
                 </div>
+
               ))}
+
             </div>
+
           ) : (
+
             <p className="text-slate-400">
               No orders yet.
             </p>
+
           )}
+
         </div>
 
         <div className="rounded-3xl bg-slate-900 border border-slate-800 p-8">
+
           <h2 className="text-2xl font-bold mb-8">
             Quick Actions
           </h2>
@@ -136,7 +153,7 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-2 gap-4">
 
             <a
-             href="/dashboard/add-funds"
+              href="/dashboard/add-funds"
               className="rounded-xl bg-blue-600 py-4 text-center font-semibold hover:bg-blue-700"
             >
               Add Funds
@@ -164,6 +181,7 @@ export default async function DashboardPage() {
             </a>
 
           </div>
+
         </div>
 
       </div>

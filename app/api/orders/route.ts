@@ -3,7 +3,6 @@ import { createApiClient } from "@/lib/api-client";
 import { createNotification } from "@/lib/notifications";
 
 export async function POST(req: Request) {
-  console.log("========== NEW ORDER API ==========");
   try {
     const supabase = await createApiClient();
 
@@ -27,43 +26,53 @@ export async function POST(req: Request) {
       charge,
     } = body;
 
-    // Wallet
-    const { data: wallet, error: walletError } = await supabase
-      .from("wallets")
+    // =====================================
+    // GET USER CREDITS
+    // =====================================
+
+    const { data: creditAccount, error: creditError } = await supabase
+      .from("credits")
       .select("*")
       .eq("user_id", user.id)
       .single();
 
-    if (walletError || !wallet) {
+    if (creditError || !creditAccount) {
       return NextResponse.json(
-        { error: "Wallet not found" },
+        { error: "Credits account not found" },
         { status: 400 }
       );
     }
 
-    if (Number(wallet.balance) < Number(charge)) {
+    if (Number(creditAccount.credits) < Number(charge)) {
       return NextResponse.json(
-        { error: "Insufficient wallet balance" },
+        { error: "Insufficient credits" },
         { status: 400 }
       );
     }
 
-    // Deduct balance
-    const { error: balanceError } = await supabase
-      .from("wallets")
+    // =====================================
+    // DEDUCT CREDITS
+    // =====================================
+
+    const { error: deductError } = await supabase
+      .from("credits")
       .update({
-        balance: Number(wallet.balance) - Number(charge),
+        credits:
+          Number(creditAccount.credits) - Number(charge),
       })
-      .eq("id", wallet.id);
+      .eq("id", creditAccount.id);
 
-    if (balanceError) {
+    if (deductError) {
       return NextResponse.json(
-        { error: balanceError.message },
+        { error: deductError.message },
         { status: 400 }
       );
     }
 
-    // Create Order
+    // =====================================
+    // CREATE ORDER
+    // =====================================
+
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert({
@@ -72,15 +81,10 @@ export async function POST(req: Request) {
         link,
         quantity,
         charge,
-
         status: "Pending",
-
         progress: 0,
-
         remains: quantity,
-
         start_count: 0,
-
         updated_at: new Date().toISOString(),
       })
       .select()
@@ -93,26 +97,33 @@ export async function POST(req: Request) {
       );
     }
 
-    // Queue Automation
-   const { error: jobError } = await supabase
-  .from("automation_jobs")
-  .insert({
-    order_id: order.id,
-    user_id: order.user_id,
-    service_id: order.service_id,
-    status: "Queued",
-    progress: 0,
-  });
+    // =====================================
+    // AUTOMATION QUEUE
+    // =====================================
 
-if (jobError) {
-  console.error("Automation Job Error:", jobError);
-  return NextResponse.json(
-    { error: jobError.message },
-    { status: 500 }
-  );
-}
+    const { error: jobError } = await supabase
+      .from("automation_jobs")
+      .insert({
+        order_id: order.id,
+        user_id: order.user_id,
+        service_id: order.service_id,
+        status: "Queued",
+        progress: 0,
+      });
 
-    // Notification
+    if (jobError) {
+      console.error(jobError);
+
+      return NextResponse.json(
+        { error: jobError.message },
+        { status: 500 }
+      );
+    }
+
+    // =====================================
+    // NOTIFICATION
+    // =====================================
+
     await createNotification({
       title: "New Order",
       message: `Order #${order.id} created successfully.`,
@@ -126,7 +137,6 @@ if (jobError) {
     });
 
   } catch (err) {
-
     console.error(err);
 
     return NextResponse.json(
@@ -135,6 +145,5 @@ if (jobError) {
       },
       { status: 500 }
     );
-
   }
 }

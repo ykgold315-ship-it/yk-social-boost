@@ -1,122 +1,70 @@
-import DepositForm from "../../components/dashboard/DepositForm";
-import { createClient } from "../../../lib/server-client";
+"use client";
 
-export default async function AddFundsPage() {
-  const supabase = await createClient();
+import Link from "next/link";
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
-
-  const { data: deposits } = await supabase
-    .from("deposits")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
-
+export default function AddFundsPage() {
   return (
-    <>
-      <h1 className="text-4xl font-bold">
+    <div className="max-w-6xl mx-auto p-8 text-white">
+
+      <h1 className="text-4xl font-bold mb-10">
         Add Funds
       </h1>
 
-      <p className="mt-2 text-slate-400">
-        Deposit money into your wallet.
-      </p>
+      <div className="grid md:grid-cols-3 gap-8">
 
-      {/* Deposit Form */}
-      <div className="mt-8">
-        <DepositForm />
-      </div>
+        {/* Stripe */}
 
-      {/* Deposit History */}
-      <div className="mt-10 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+        <Link
+          href="/dashboard/add-funds/stripe"
+          className="bg-slate-900 border border-slate-800 rounded-2xl p-8 hover:border-blue-500 transition"
+        >
+          <div className="text-5xl mb-5">💳</div>
 
-        <table className="w-full">
+          <h2 className="text-2xl font-bold">
+            Credit / Debit Card
+          </h2>
 
-          <thead className="bg-slate-800">
-            <tr>
-              <th className="px-6 py-4 text-left">
-                Amount
-              </th>
+          <p className="mt-4 text-slate-400">
+            Pay securely with Visa, Mastercard, Apple Pay and Google Pay.
+          </p>
+        </Link>
 
-              <th className="px-6 py-4 text-left">
-                Method
-              </th>
+        {/* Bank */}
 
-              <th className="px-6 py-4 text-left">
-                Status
-              </th>
+        <Link
+          href="/dashboard/add-funds/bank"
+          className="bg-slate-900 border border-slate-800 rounded-2xl p-8 hover:border-green-500 transition"
+        >
+          <div className="text-5xl mb-5">🏦</div>
 
-              <th className="px-6 py-4 text-left">
-                Date
-              </th>
-            </tr>
-          </thead>
+          <h2 className="text-2xl font-bold">
+            Bank Transfer
+          </h2>
 
-          <tbody>
+          <p className="mt-4 text-slate-400">
+            Transfer directly into our bank account.
+          </p>
+        </Link>
 
-            {deposits && deposits.length > 0 ? (
+        {/* Crypto */}
 
-              deposits.map((deposit) => (
+        <Link
+          href="/dashboard/add-funds/crypto"
+          className="bg-slate-900 border border-slate-800 rounded-2xl p-8 hover:border-yellow-500 transition"
+        >
+          <div className="text-5xl mb-5">₿</div>
 
-                <tr
-                  key={deposit.id}
-                  className="border-t border-slate-800"
-                >
-                  <td className="px-6 py-5">
-                    £{Number(deposit.amount).toFixed(2)}
-                  </td>
+          <h2 className="text-2xl font-bold">
+            Cryptocurrency
+          </h2>
 
-                  <td className="px-6 py-5">
-                    {deposit.payment_method}
-                  </td>
-
-                  <td className="px-6 py-5">
-
-                    <span
-                      className={`rounded-full px-3 py-1 text-sm ${
-                        deposit.status === "Approved"
-                          ? "bg-green-600"
-                          : deposit.status === "Rejected"
-                          ? "bg-red-600"
-                          : "bg-yellow-600"
-                      }`}
-                    >
-                      {deposit.status}
-                    </span>
-
-                  </td>
-
-                  <td className="px-6 py-5">
-                    {new Date(deposit.created_at).toLocaleDateString()}
-                  </td>
-
-                </tr>
-
-              ))
-
-            ) : (
-
-              <tr>
-                <td
-                  colSpan={4}
-                  className="py-8 text-center text-slate-400"
-                >
-                  No deposits yet.
-                </td>
-              </tr>
-
-            )}
-
-          </tbody>
-
-        </table>
+          <p className="mt-4 text-slate-400">
+            Pay using BTC, ETH, USDT, USDC and more.
+          </p>
+        </Link>
 
       </div>
 
-    </>
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 import DepositForm from "../../components/dashboard/DepositForm";
 import { createClient } from "../../../lib/server-client";
 
-export default async function WalletPage() {
+export default async function CreditsPage() {
   const supabase = await createClient();
 
   const {
@@ -10,38 +10,39 @@ export default async function WalletPage() {
 
   if (!user) return null;
 
-  const [{ data: wallet }, { data: deposits }] = await Promise.all([
-    supabase
-      .from("wallets")
-      .select("balance")
-      .eq("user_id", user.id)
-      .single(),
+  const [{ data: credits }, { data: deposits }] =
+    await Promise.all([
+      supabase
+        .from("credits")
+        .select("credits")
+        .eq("user_id", user.id)
+        .single(),
 
-    supabase
-      .from("deposits")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false }),
-  ]);
+      supabase
+        .from("deposits")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+    ]);
 
   return (
     <>
       <h1 className="text-4xl font-bold">
-        Wallet
+        Credits
       </h1>
 
       <p className="mt-2 text-slate-400">
-        Manage your balance and payment methods.
+        Purchase credits for placing orders.
       </p>
 
       <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-8">
 
         <h2 className="text-xl font-bold mb-2">
-          Current Balance
+          Available Credits
         </h2>
 
-        <p className="text-4xl font-bold text-green-400">
-          £{Number(wallet?.balance ?? 0).toFixed(2)}
+        <p className="text-5xl font-bold text-green-400">
+          {Number(credits?.credits ?? 0).toLocaleString()}
         </p>
 
       </div>
@@ -55,27 +56,12 @@ export default async function WalletPage() {
         <table className="w-full">
 
           <thead className="bg-slate-800">
-
             <tr>
-
-              <th className="px-6 py-4 text-left">
-                Amount
-              </th>
-
-              <th className="px-6 py-4 text-left">
-                Method
-              </th>
-
-              <th className="px-6 py-4 text-left">
-                Status
-              </th>
-
-              <th className="px-6 py-4 text-left">
-                Date
-              </th>
-
+              <th className="px-6 py-4 text-left">Credits</th>
+              <th className="px-6 py-4 text-left">Method</th>
+              <th className="px-6 py-4 text-left">Status</th>
+              <th className="px-6 py-4 text-left">Date</th>
             </tr>
-
           </thead>
 
           <tbody>
@@ -88,9 +74,8 @@ export default async function WalletPage() {
                   key={deposit.id}
                   className="border-t border-slate-800"
                 >
-
                   <td className="px-6 py-5">
-                    £{Number(deposit.amount).toFixed(2)}
+                    {deposit.amount}
                   </td>
 
                   <td className="px-6 py-5">
@@ -129,7 +114,7 @@ export default async function WalletPage() {
                   colSpan={4}
                   className="py-8 text-center text-slate-400"
                 >
-                  No deposits yet.
+                  No credit purchases yet.
                 </td>
 
               </tr>
@@ -141,6 +126,7 @@ export default async function WalletPage() {
         </table>
 
       </div>
+
     </>
   );
 }

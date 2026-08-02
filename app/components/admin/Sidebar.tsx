@@ -31,6 +31,12 @@ const menu = [
     icon: Users,
   },
   {
+  name: "Subsellers",
+  href: "/admin/subsellers",
+  icon: Users,
+},
+
+  {
     name: "Orders",
     href: "/admin/orders",
     icon: ShoppingCart,
@@ -65,26 +71,60 @@ const menu = [
     href: "/admin/pricing-rules",
     icon: DollarSign,
   },
+
   {
-    name: "Wallet",
-    href: "/admin/wallet",
-    icon: Wallet,
-  },
-  {
-    name: "Support",
-    href: "/admin/support",
-    icon: LifeBuoy,
-  },
-  {
-    name: "Deposits",
-    href: "/admin/deposits",
-    icon: CreditCard,
-  },
-  {
-    name: "Automation",
-    href: "/admin/automation",
-    icon: Cpu,
-  },
+  name: "Wallet",
+  href: "/admin/wallet",
+  icon: Wallet,
+},
+
+{
+  name: "Support",
+  href: "/admin/support",
+  icon: LifeBuoy,
+},
+
+{
+  name: "Deposits",
+  href: "/admin/deposits",
+  icon: CreditCard,
+},
+
+{
+  name: "Payment Settings",
+  href: "/admin/payment-settings",
+  icon: CreditCard,
+},
+
+{
+  name: "Crypto Wallets",
+  href: "/admin/crypto-wallets",
+  icon: Wallet,
+},
+
+{
+  name: "Stripe Settings",
+  href: "/admin/stripe-settings",
+  icon: CreditCard,
+},
+
+{
+  name: "Crypto Settings",
+  href: "/admin/crypto-settings",
+  icon: Wallet,
+},
+
+{
+  name: "Payment Assets",
+  href: "/admin/payment-assets",
+  icon: CreditCard,
+},
+
+{
+  name: "Automation",
+  href: "/admin/automation",
+  icon: Cpu,
+},
   {
     name: "Providers",
     href: "/admin/providers",
