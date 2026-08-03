@@ -71,21 +71,74 @@ export default function NewOrderPage() {
   async function createOrder() {
     setLoading(true);
 
-    const { error } = await supabase.from("orders").insert({
-      user_id: form.user_id,
-      service_id: Number(form.service_id),
-      link: form.link,
-      quantity: Number(form.quantity),
-      charge: Number(form.charge),
-      status: "Pending",
-      start_count: 0,
-      remains: Number(form.quantity),
+    const selectedService = services.find(
+      (s) => s.id === Number(form.service_id)
+    );
+
+    if (!selectedService) {
+      setLoading(false);
+      return alert("Select a valid service.");
+    }
+
+    const { data: serviceRecord, error: serviceRecordError } = await supabase
+      .from("services")
+      .select("provider_service_id, active")
+      .eq("id", selectedService.id)
+      .single();
+
+    if (serviceRecordError || !serviceRecord) {
+      setLoading(false);
+      return alert("Service lookup failed.");
+    }
+
+    if (!serviceRecord.active) {
+      setLoading(false);
+      return alert("Service is not active.");
+    }
+
+    if (
+      serviceRecord.provider_service_id == null ||
+      String(serviceRecord.provider_service_id).trim() === "" ||
+      String(serviceRecord.provider_service_id).trim() === "0"
+    ) {
+      setLoading(false);
+      return alert("Selected service is not mapped to a provider service.");
+    }
+
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .insert({
+        user_id: form.user_id,
+        service_id: Number(form.service_id),
+        link: form.link,
+        quantity: Number(form.quantity),
+        charge: Number(form.charge),
+        status: "Pending",
+        start_count: 0,
+        remains: Number(form.quantity),
+      })
+      .select()
+      .single();
+
+    if (orderError || !order) {
+      setLoading(false);
+      alert(orderError?.message || "Failed to create order.");
+      return;
+    }
+
+    const { error: jobError } = await supabase.from("automation_jobs").insert({
+      order_id: order.id,
+      user_id: order.user_id,
+      service_id: order.service_id,
+      status: "Queued",
+      progress: 0,
     });
 
     setLoading(false);
 
-    if (error) {
-      alert(error.message);
+    if (jobError) {
+      alert("Order created but failed to queue automation job.");
+      console.error(jobError);
       return;
     }
 

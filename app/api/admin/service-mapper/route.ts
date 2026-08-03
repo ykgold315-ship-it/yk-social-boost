@@ -8,12 +8,17 @@ export async function POST(request: Request) {
       providerServiceId,
     } = await request.json();
 
+    const providerServiceValue =
+      providerServiceId && String(providerServiceId).trim() !== "0"
+        ? providerServiceId
+        : null;
+
     const supabase = adminClient;
 
     const { error } = await supabase
       .from("services")
       .update({
-        provider_service_id: providerServiceId,
+        provider_service_id: providerServiceValue,
       })
       .eq("id", serviceId);
 

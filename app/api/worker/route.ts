@@ -1,9 +1,9 @@
 ﻿import { NextResponse } from "next/server";
-import { createApiClient } from "@/lib/api-client";
+import { adminClient } from "@/lib/admin-client";
 
 export async function GET() {
   try {
-    const supabase = await createApiClient();
+    const supabase = adminClient;
 
     const { data: queuedJob, error: queuedJobError } = await supabase
       .from("automation_jobs")
@@ -55,12 +55,26 @@ export async function GET() {
       .eq("id", orderRecord.service_id)
       .single();
 
-    if (serviceError || !serviceRecord || !serviceRecord.provider_service_id) {
+    const serviceLookupValues = {
+      orderServiceId: orderRecord.service_id,
+      serviceRecord,
+      serviceError,
+      providerServiceId:
+        serviceRecord?.provider_service_id ?? null,
+    };
+
+    if (
+      serviceError ||
+      !serviceRecord ||
+      serviceRecord.provider_service_id == null ||
+      String(serviceRecord.provider_service_id).trim() === "" ||
+      String(serviceRecord.provider_service_id).trim() === "0"
+    ) {
       const errorMessage =
         serviceError?.message || "Missing provider_service_id for local service.";
-      console.error("Service lookup failed", serviceError || serviceRecord);
+      console.error("Service lookup failed", serviceLookupValues);
 
-      await supabase
+      const { error: failJobError } = await supabase
         .from("automation_jobs")
         .update({
           status: "Failed",
@@ -70,12 +84,20 @@ export async function GET() {
         })
         .eq("id", queuedJob.id);
 
-      await supabase
+      if (failJobError) {
+        console.error("Failed to mark automation job failed", failJobError);
+      }
+
+      const { error: failOrderError } = await supabase
         .from("orders")
         .update({
           status: "Failed",
         })
         .eq("id", orderRecord.id);
+
+      if (failOrderError) {
+        console.error("Failed to mark order failed", failOrderError);
+      }
 
       return NextResponse.json(
         {
@@ -123,7 +145,7 @@ export async function GET() {
       );
     }
 
-    await supabase
+    const { error: processingJobError } = await supabase
       .from("automation_jobs")
       .update({
         status: "Processing",
@@ -132,13 +154,35 @@ export async function GET() {
       })
       .eq("id", queuedJob.id);
 
-    await supabase
+    if (processingJobError) {
+      console.error("Failed to mark automation job processing", processingJobError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to update job status.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const { error: processingOrderError } = await supabase
       .from("orders")
       .update({
         status: "Processing",
         updated_at: new Date().toISOString(),
       })
       .eq("id", orderRecord.id);
+
+    if (processingOrderError) {
+      console.error("Failed to mark order processing", processingOrderError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to update order status.",
+        },
+        { status: 500 }
+      );
+    }
 
     const body = new URLSearchParams();
     body.append("key", providerRecord.api_key);
@@ -219,7 +263,7 @@ export async function GET() {
       );
     }
 
-    await supabase
+    const { error: completeOrderError } = await supabase
       .from("orders")
       .update({
         provider_id: providerRecord.id,
@@ -230,7 +274,18 @@ export async function GET() {
       })
       .eq("id", orderRecord.id);
 
-    await supabase
+    if (completeOrderError) {
+      console.error("Failed to complete order", completeOrderError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to save provider order info.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const { error: completeJobError } = await supabase
       .from("automation_jobs")
       .update({
         status: "Completed",
@@ -238,6 +293,17 @@ export async function GET() {
         completed_at: new Date().toISOString(),
       })
       .eq("id", queuedJob.id);
+
+    if (completeJobError) {
+      console.error("Failed to complete automation job", completeJobError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to complete automation job.",
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

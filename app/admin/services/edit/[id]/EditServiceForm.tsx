@@ -57,10 +57,11 @@ export default function EditServiceForm({
         max_order: Number(form.get("max_order")),
         delivery_time: form.get("delivery_time"),
         provider: form.get("provider"),
-       provider_service_id:
-  form.get("provider_service_id")
-    ? Number(form.get("provider_service_id"))
-    : null,
+        provider_service_id: (() => {
+          const value = form.get("provider_service_id");
+          const numeric = value ? Number(value) : null;
+          return numeric && numeric > 0 ? numeric : null;
+        })(),
         api_price: Number(form.get("api_price")),
         profit: Number(form.get("profit")),
         average_time: form.get("average_time"),

@@ -64,7 +64,7 @@ const { error } = await supabase
     active: form.get("status") === "Active",
 
     provider: "YK Social Boost",
-    provider_service_id: 0,
+    provider_service_id: null,
     api_price: 0,
     profit: 0,
     average_time: "",

@@ -23,8 +23,67 @@ export async function POST(req: Request) {
       service_id,
       link,
       quantity,
-      charge,
     } = body;
+
+    if (!service_id || !link || !quantity) {
+      return NextResponse.json(
+        { error: "service_id, link and quantity are required." },
+        { status: 400 }
+      );
+    }
+
+    const orderedQuantity = Number(quantity);
+    if (orderedQuantity <= 0) {
+      return NextResponse.json(
+        { error: "Quantity must be greater than zero." },
+        { status: 400 }
+      );
+    }
+
+    const { data: service, error: serviceError } = await supabase
+      .from("services")
+      .select("id, price, selling_price, provider_service_id, active")
+      .eq("id", service_id)
+      .single();
+
+    if (serviceError || !service) {
+      return NextResponse.json(
+        { error: "Service not found." },
+        { status: 404 }
+      );
+    }
+
+    if (!service.active) {
+      return NextResponse.json(
+        { error: "Service is not active." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      service.provider_service_id == null ||
+      String(service.provider_service_id).trim() === "" ||
+      String(service.provider_service_id).trim() === "0"
+    ) {
+      return NextResponse.json(
+        { error: "Service is not mapped to a provider service." },
+        { status: 400 }
+      );
+    }
+
+    const servicePrice =
+      service.selling_price != null
+        ? Number(service.selling_price)
+        : Number(service.price);
+
+    if (Number.isNaN(servicePrice) || servicePrice <= 0) {
+      return NextResponse.json(
+        { error: "Service has invalid price." },
+        { status: 400 }
+      );
+    }
+
+    const charge = Number(((servicePrice * orderedQuantity) / 1000).toFixed(2));
 
     // =====================================
     // GET USER CREDITS
@@ -43,7 +102,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (Number(creditAccount.credits) < Number(charge)) {
+    if (Number(creditAccount.credits) < charge) {
       return NextResponse.json(
         { error: "Insufficient credits" },
         { status: 400 }
@@ -57,8 +116,7 @@ export async function POST(req: Request) {
     const { error: deductError } = await supabase
       .from("credits")
       .update({
-        credits:
-          Number(creditAccount.credits) - Number(charge),
+        credits: Number(creditAccount.credits) - charge,
       })
       .eq("id", creditAccount.id);
 
@@ -79,20 +137,20 @@ export async function POST(req: Request) {
         user_id: user.id,
         service_id,
         link,
-        quantity,
+        quantity: orderedQuantity,
         charge,
         status: "Pending",
         progress: 0,
-        remains: quantity,
+        remains: orderedQuantity,
         start_count: 0,
         updated_at: new Date().toISOString(),
       })
       .select()
       .single();
 
-    if (orderError) {
+    if (orderError || !order) {
       return NextResponse.json(
-        { error: orderError.message },
+        { error: orderError?.message || "Failed to create order." },
         { status: 400 }
       );
     }
