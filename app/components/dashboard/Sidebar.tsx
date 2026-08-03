@@ -3,122 +3,149 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
-  ShoppingCart,
-  Layers3,
-  Wallet,
-  LifeBuoy,
-  Settings,
+  Menu,
+  X,
   LogOut,
-  CreditCard,
 } from "lucide-react";
 
-const menu = [
-  {
-    name: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
+import {
+  customerMenu,
+  adminMenu,
+  resellerMenu,
+} from "./menu";
 
-  {
-    name: "Add Funds",
-    href: "/dashboard/add-funds",
-    icon: CreditCard,
-  },
+type Permission = {
+  can_create_customers?: boolean;
+  can_create_subsellers?: boolean;
+  can_view_reports?: boolean;
+  can_use_api?: boolean;
+};
 
-  {
-    name: "New Order",
-    href: "/dashboard/orders/new",
-    icon: ShoppingCart,
-  },
+type SidebarProps = {
+  role: "admin" | "customer" | "subseller";
+  permissions?: Permission;
+  open: boolean;
+  setOpen: (value: boolean) => void;
+};
 
-  {
-    name: "Orders",
-    href: "/dashboard/orders",
-    icon: ShoppingCart,
-  },
-
-  {
-    name: "Services",
-    href: "/dashboard/services",
-    icon: Layers3,
-  },
-
-  { name: "Credits", 
-    href: "/dashboard/credits",
-     icon: Wallet 
-  },
-
-  {
-    name: "Support",
-    href: "/dashboard/support",
-    icon: LifeBuoy,
-  },
-
-  {
-    name: "Settings",
-    href: "/dashboard/settings",
-    icon: Settings,
-  },
-];
-
-export default function Sidebar() {
+export default function Sidebar({
+  role,
+  permissions,
+  open,
+  setOpen,
+}: SidebarProps) {
   const pathname = usePathname();
 
+  let menu = customerMenu;
+
+  if (role === "admin") {
+    menu = adminMenu;
+  }
+
+  if (role === "subseller") {
+    menu = resellerMenu.filter((item) => {
+      if (!item.permission) return true;
+
+      return permissions?.[
+        item.permission as keyof Permission
+      ];
+    });
+  }
+
   return (
-    <aside className="w-72 min-h-screen border-r border-slate-800 bg-slate-950 flex flex-col">
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setOpen(false)}
+        />
+      )}
 
-      <div className="p-8 border-b border-slate-800">
-        <h1 className="text-3xl font-extrabold tracking-tight">
-          <span className="text-white">YK</span>{" "}
-          <span className="text-blue-500">Social Boost</span>
-        </h1>
+      <aside
+        className={`
+          fixed left-0 top-0 z-50 h-screen
+          border-r border-slate-800 bg-slate-950
+          transition-all duration-300
+          ${
+            open
+              ? "w-72 translate-x-0"
+              : "w-20 -translate-x-full lg:translate-x-0"
+          }
+        `}
+      >
+        <div className="flex items-center justify-between border-b border-slate-800 p-5">
 
-        <p className="mt-2 text-sm text-slate-400">
-          Premium SMM Platform
-        </p>
-      </div>
+          {open && (
+            <div>
+              <h1 className="text-2xl font-bold">
+                <span className="text-white">YK</span>{" "}
+                <span className="text-blue-500">
+                  Social Boost
+                </span>
+              </h1>
 
-      <nav className="flex-1 px-5 py-8 space-y-2">
+              <p className="mt-1 text-xs text-slate-400">
+                Premium SMM Platform
+              </p>
+            </div>
+          )}
 
-        {menu.map((item) => {
-          const Icon = item.icon;
+          <button
+            onClick={() => setOpen(!open)}
+            className="rounded-lg p-2 hover:bg-slate-800"
+          >
+            {open ? (
+              <X size={22} />
+            ) : (
+              <Menu size={22} />
+            )}
+          </button>
 
-          const active =
-            pathname === item.href ||
-            (item.href !== "/dashboard" &&
-              pathname.startsWith(item.href));
+        </div>
 
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all duration-200 ${
-                active
-                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
-              }`}
-            >
-              <Icon size={20} />
-              {item.name}
-            </Link>
-          );
-        })}
+        <nav className="space-y-2 overflow-y-auto px-3 py-5">
 
-      </nav>
+          {menu.map((item) => {
+            const Icon = item.icon;
 
-      <div className="border-t border-slate-800 p-5">
+            const active =
+              pathname === item.href ||
+              pathname.startsWith(item.href);
 
-        <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 py-3 text-slate-300 transition hover:bg-red-600 hover:text-white">
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`flex items-center gap-3 rounded-xl px-4 py-3 transition ${
+                  active
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <Icon size={20} />
 
-          <LogOut size={18} />
+                {open && (
+                  <span>{item.name}</span>
+                )}
+              </Link>
+            );
+          })}
 
-          Logout
+        </nav>
 
-        </button>
+        <div className="border-t border-slate-800 p-4">
 
-      </div>
+          <button className="flex w-full items-center gap-3 rounded-xl bg-slate-800 px-4 py-3 hover:bg-red-600">
 
-    </aside>
+            <LogOut size={18} />
+
+            {open && <span>Logout</span>}
+
+          </button>
+
+        </div>
+
+      </aside>
+    </>
   );
 }

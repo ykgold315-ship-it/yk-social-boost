@@ -4,56 +4,99 @@ import { createClient } from "@/lib/server-client";
 export async function POST(req: Request) {
   const supabase = await createClient();
 
-  const { depositId } = await req.json();
+  try {
+    const { depositId } = await req.json();
 
-  // Get deposit
-  const { data: deposit, error } = await supabase
-    .from("deposits")
-    .select("*")
-    .eq("id", depositId)
-    .single();
+    // Get Deposit
+    const { data: deposit, error } = await supabase
+      .from("deposits")
+      .select("*")
+      .eq("id", depositId)
+      .single();
 
-  if (error || !deposit) {
+    if (error || !deposit) {
+      return NextResponse.json(
+        {
+          error: "Deposit not found",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    // Prevent double approval
+    if (deposit.status === "Approved") {
+      return NextResponse.json(
+        {
+          error: "Deposit already approved.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    // Update Deposit
+    const { error: depositError } = await supabase
+      .from("deposits")
+      .update({
+        status: "Approved",
+        approved_at: new Date().toISOString(),
+      })
+      .eq("id", depositId);
+
+    if (depositError) {
+      return NextResponse.json(
+        {
+          error: depositError.message,
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    // Credits
+    const { data: wallet } = await supabase
+      .from("credits")
+      .select("*")
+      .eq("user_id", deposit.user_id)
+      .single();
+
+    if (wallet) {
+      await supabase
+        .from("credits")
+        .update({
+          credits:
+            Number(wallet.credits) +
+            Number(deposit.amount),
+        })
+        .eq("user_id", deposit.user_id);
+    } else {
+      await supabase
+        .from("credits")
+        .insert({
+          user_id: deposit.user_id,
+          credits: Number(deposit.amount),
+        });
+    }
+
+    return NextResponse.json({
+      success: true,
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
     return NextResponse.json(
-      { error: "Deposit not found" },
-      { status: 404 }
+      {
+        error: "Server Error",
+      },
+      {
+        status: 500,
+      }
     );
   }
-
-  // Mark deposit approved
-  await supabase
-    .from("deposits")
-    .update({
-      status: "Approved",
-    })
-    .eq("id", depositId);
-
-  // Get current credits
-  const { data: creditRow } = await supabase
-    .from("credits")
-    .select("*")
-    .eq("user_id", deposit.user_id)
-    .single();
-
-  if (creditRow) {
-    await supabase
-      .from("credits")
-      .update({
-        credits:
-          Number(creditRow.credits) +
-          Number(deposit.amount),
-      })
-      .eq("user_id", deposit.user_id);
-  } else {
-    await supabase
-      .from("credits")
-      .insert({
-        user_id: deposit.user_id,
-        credits: deposit.amount,
-      });
-  }
-
-  return NextResponse.json({
-    success: true,
-  });
 }

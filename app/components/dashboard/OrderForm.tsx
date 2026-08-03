@@ -139,7 +139,9 @@ router.push("/dashboard/orders");
 
         {selectedService && (
           <div className="rounded-xl bg-slate-800 p-5 space-y-2">
-            <p><strong>Price:</strong> ₦{selectedService.price}</p>
+            <h2 className="text-3xl font-bold">
+  ${charge}
+</h2>
             <p><strong>Min:</strong> {selectedService.min_order}</p>
             <p><strong>Max:</strong> {selectedService.max_order}</p>
             <p><strong>Delivery:</strong> {selectedService.delivery_time}</p>
@@ -164,7 +166,7 @@ router.push("/dashboard/orders");
         <div className="rounded-xl bg-blue-950 border border-blue-700 p-5">
           <p>Estimated Charge</p>
           <h2 className="text-3xl font-bold">
-            ₦{charge}
+            ${charge}
           </h2>
         </div>
 

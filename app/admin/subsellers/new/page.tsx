@@ -14,6 +14,13 @@ export default function NewSubsellerPage() {
     company_name: "",
     credits: 0,
     discount_percent: 0,
+
+    can_create_customers: true,
+    can_create_subsellers: false,
+    can_transfer_credits: false,
+    can_use_api: false,
+    can_view_reports: false,
+    can_manage_prices: false,
   });
 
   async function createSubseller() {
@@ -43,17 +50,17 @@ export default function NewSubsellerPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-8 text-white">
+    <div className="max-w-4xl mx-auto p-8 text-white">
 
       <h1 className="text-4xl font-bold mb-8">
         Create New Subseller
       </h1>
 
-      <div className="bg-slate-900 rounded-2xl border border-slate-800 p-8 space-y-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 space-y-6">
 
         <div>
           <label className="block mb-2 font-semibold">
-            Email Address
+            Email
           </label>
 
           <input
@@ -78,10 +85,6 @@ export default function NewSubsellerPage() {
               setForm({...form,password:e.target.value})
             }
           />
-
-          <p className="text-sm text-slate-400 mt-2">
-            Example: <b>Ykgold@2026</b>
-          </p>
         </div>
 
         <div>
@@ -115,7 +118,7 @@ export default function NewSubsellerPage() {
 
         <div>
           <label className="block mb-2 font-semibold">
-            Discount (%)
+            Discount %
           </label>
 
           <input
@@ -126,6 +129,118 @@ export default function NewSubsellerPage() {
               setForm({...form,discount_percent:Number(e.target.value)})
             }
           />
+        </div>
+
+        <hr className="border-slate-700"/>
+
+        <h2 className="text-2xl font-bold">
+          Permissions
+        </h2>
+
+        <div className="space-y-4">
+
+          <label className="flex items-center gap-3">
+
+            <input
+              type="checkbox"
+              checked={form.can_create_customers}
+              onChange={(e)=>
+                setForm({
+                  ...form,
+                  can_create_customers:e.target.checked,
+                })
+              }
+            />
+
+            Can Create Customers
+
+          </label>
+
+          <label className="flex items-center gap-3">
+
+            <input
+              type="checkbox"
+              checked={form.can_create_subsellers}
+              onChange={(e)=>
+                setForm({
+                  ...form,
+                  can_create_subsellers:e.target.checked,
+                })
+              }
+            />
+
+            Can Create Resellers
+
+          </label>
+
+          <label className="flex items-center gap-3">
+
+            <input
+              type="checkbox"
+              checked={form.can_transfer_credits}
+              onChange={(e)=>
+                setForm({
+                  ...form,
+                  can_transfer_credits:e.target.checked,
+                })
+              }
+            />
+
+            Can Transfer Credits
+
+          </label>
+
+          <label className="flex items-center gap-3">
+
+            <input
+              type="checkbox"
+              checked={form.can_use_api}
+              onChange={(e)=>
+                setForm({
+                  ...form,
+                  can_use_api:e.target.checked,
+                })
+              }
+            />
+
+            Can Use API
+
+          </label>
+
+          <label className="flex items-center gap-3">
+
+            <input
+              type="checkbox"
+              checked={form.can_view_reports}
+              onChange={(e)=>
+                setForm({
+                  ...form,
+                  can_view_reports:e.target.checked,
+                })
+              }
+            />
+
+            Can View Reports
+
+          </label>
+
+          <label className="flex items-center gap-3">
+
+            <input
+              type="checkbox"
+              checked={form.can_manage_prices}
+              onChange={(e)=>
+                setForm({
+                  ...form,
+                  can_manage_prices:e.target.checked,
+                })
+              }
+            />
+
+            Can Manage Prices
+
+          </label>
+
         </div>
 
         <button

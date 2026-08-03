@@ -16,6 +16,13 @@ export async function POST(req: Request) {
       company_name,
       credits,
       discount_percent,
+
+      can_create_customers,
+      can_create_subsellers,
+      can_transfer_credits,
+      can_use_api,
+      can_view_reports,
+      can_manage_prices,
     } = body;
 
     // Create Auth User
@@ -28,43 +35,76 @@ export async function POST(req: Request) {
 
     if (authError) {
       return NextResponse.json(
-        { error: authError.message },
-        { status: 400 }
+        {
+          error: authError.message,
+        },
+        {
+          status: 400,
+        }
       );
     }
 
     const user = authData.user;
 
-    // Create credits account
-    const { error: creditError } = await admin
-      .from("credits")
-      .insert({
-        user_id: user.id,
-        credits: Number(credits),
-      });
+    // Create Credits Account
+    const { error: creditError } =
+      await admin
+        .from("credits")
+        .insert({
+          user_id: user.id,
+          credits: Number(credits),
+        });
 
     if (creditError) {
       return NextResponse.json(
-        { error: creditError.message },
-        { status: 400 }
+        {
+          error: creditError.message,
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    // Create subseller
-    const { error: subError } = await admin
-      .from("subsellers")
-      .insert({
-        user_id: user.id,
-        company_name,
-        credits: Number(credits),
-        discount_percent: Number(discount_percent),
-        active: true,
-      });
+    // Create Subseller
+    const { error: subError } =
+      await admin
+        .from("subsellers")
+        .insert({
+          user_id: user.id,
+          company_name,
+          credits: Number(credits),
+          discount_percent: Number(discount_percent),
+
+          active: true,
+
+          can_create_customers:
+            can_create_customers ?? true,
+
+          can_create_subsellers:
+            can_create_subsellers ?? false,
+
+          can_transfer_credits:
+            can_transfer_credits ?? false,
+
+          can_use_api:
+            can_use_api ?? false,
+
+          can_view_reports:
+            can_view_reports ?? false,
+
+          can_manage_prices:
+            can_manage_prices ?? false,
+        });
 
     if (subError) {
       return NextResponse.json(
-        { error: subError.message },
-        { status: 400 }
+        {
+          error: subError.message,
+        },
+        {
+          status: 400,
+        }
       );
     }
 
@@ -73,11 +113,16 @@ export async function POST(req: Request) {
     });
 
   } catch (err) {
+
     console.error(err);
 
     return NextResponse.json(
-      { error: "Server Error" },
-      { status: 500 }
+      {
+        error: "Server Error",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
