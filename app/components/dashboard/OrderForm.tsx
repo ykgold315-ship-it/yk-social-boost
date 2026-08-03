@@ -46,15 +46,28 @@ export default function OrderForm() {
   }
 
   function handleService(id: string) {
-    const service = services.find((s) => s.id === Number(id));
+    const service = services.find(
+      (s) => s.id === Number(id)
+    );
+
     setSelectedService(service);
   }
 
+  // ============================
+  // USE SELLING PRICE
+  // ============================
+
+  const servicePrice = Number(
+    selectedService?.selling_price ||
+      selectedService?.price ||
+      0
+  );
+
   const charge =
-    selectedService && quantity
+    quantity && servicePrice
       ? (
           (Number(quantity) / 1000) *
-          Number(selectedService.price)
+          servicePrice
         ).toFixed(2)
       : "0.00";
 
@@ -94,11 +107,11 @@ export default function OrderForm() {
       return alert(data.error);
     }
 
-   alert("✅ Order placed successfully!");
+    alert("✅ Order placed successfully!");
 
-router.refresh();
+    router.refresh();
 
-router.push("/dashboard/orders");
+    router.push("/dashboard/orders");
   }
 
   return (
@@ -112,45 +125,76 @@ router.push("/dashboard/orders");
 
         <select
           value={selectedCategory}
-          onChange={(e) => handleCategory(e.target.value)}
+          onChange={(e) =>
+            handleCategory(e.target.value)
+          }
           className="w-full rounded-xl bg-slate-800 border border-slate-700 p-3"
         >
-          <option value="">Select Category</option>
+          <option value="">
+            Select Category
+          </option>
 
           {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
+            <option
+              key={cat.id}
+              value={cat.id}
+            >
               {cat.name}
             </option>
           ))}
         </select>
 
         <select
-          onChange={(e) => handleService(e.target.value)}
+          onChange={(e) =>
+            handleService(e.target.value)
+          }
           className="w-full rounded-xl bg-slate-800 border border-slate-700 p-3"
         >
-          <option>Select Service</option>
+          <option value="">
+            Select Service
+          </option>
 
           {services.map((service) => (
-            <option key={service.id} value={service.id}>
+            <option
+              key={service.id}
+              value={service.id}
+            >
               {service.name}
             </option>
           ))}
         </select>
 
         {selectedService && (
-          <div className="rounded-xl bg-slate-800 p-5 space-y-2">
-            <h2 className="text-3xl font-bold">
-  ${charge}
-</h2>
-            <p><strong>Min:</strong> {selectedService.min_order}</p>
-            <p><strong>Max:</strong> {selectedService.max_order}</p>
-            <p><strong>Delivery:</strong> {selectedService.delivery_time}</p>
+          <div className="rounded-xl bg-slate-800 p-5 space-y-3">
+
+            <p>
+              <strong>Price:</strong>{" "}
+              ${servicePrice.toFixed(2)} /1000
+            </p>
+
+            <p>
+              <strong>Minimum:</strong>{" "}
+              {selectedService.min_order}
+            </p>
+
+            <p>
+              <strong>Maximum:</strong>{" "}
+              {selectedService.max_order}
+            </p>
+
+            <p>
+              <strong>Delivery:</strong>{" "}
+              {selectedService.delivery_time}
+            </p>
+
           </div>
         )}
 
         <input
           value={link}
-          onChange={(e) => setLink(e.target.value)}
+          onChange={(e) =>
+            setLink(e.target.value)
+          }
           placeholder="Enter Link"
           className="w-full rounded-xl bg-slate-800 border border-slate-700 p-3"
         />
@@ -158,24 +202,33 @@ router.push("/dashboard/orders");
         <input
           type="number"
           value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
+          onChange={(e) =>
+            setQuantity(e.target.value)
+          }
           placeholder="Quantity"
           className="w-full rounded-xl bg-slate-800 border border-slate-700 p-3"
         />
 
         <div className="rounded-xl bg-blue-950 border border-blue-700 p-5">
-          <p>Estimated Charge</p>
-          <h2 className="text-3xl font-bold">
+
+          <p className="text-slate-300">
+            Estimated Charge
+          </p>
+
+          <h2 className="text-3xl font-bold text-white">
             ${charge}
           </h2>
+
         </div>
 
         <button
           onClick={placeOrder}
           disabled={loading}
-          className="w-full rounded-xl bg-blue-600 py-3 font-semibold hover:bg-blue-700"
+          className="w-full rounded-xl bg-blue-600 py-3 font-semibold hover:bg-blue-700 disabled:opacity-50"
         >
-          {loading ? "Placing Order..." : "Place Order"}
+          {loading
+            ? "Placing Order..."
+            : "Place Order"}
         </button>
 
       </div>
