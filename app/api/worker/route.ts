@@ -1,141 +1,182 @@
 ﻿import { NextResponse } from "next/server";
 import { adminClient } from "@/lib/admin-client";
 
+function normalizeProviderError(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+
+    if (typeof record.error === "string") {
+      return record.error;
+    }
+
+    if (typeof record.message === "string") {
+      return record.message;
+    }
+
+    if (typeof record.details === "string") {
+      return record.details;
+    }
+
+    if (Array.isArray(record.error)) {
+      return record.error.join(", ");
+    }
+  }
+
+  return null;
+}
+
+async function markJobFailed(
+  supabase: typeof adminClient,
+  jobId: number | string,
+  orderId: number | string | null,
+  errorMessage: string
+) {
+  await supabase.from("automation_jobs").update({
+    status: "Failed",
+    progress: 0,
+    error: errorMessage,
+    completed_at: new Date().toISOString(),
+  }).eq("id", jobId);
+
+  if (orderId !== null && orderId !== undefined) {
+    await supabase.from("orders").update({
+      status: "Failed",
+      updated_at: new Date().toISOString(),
+    }).eq("id", orderId);
+  }
+}
+
 export async function GET() {
   try {
     const supabase = adminClient;
 
-    const { data: queuedJob, error: queuedJobError } = await supabase
+    const queuedJobsResult = await supabase
       .from("automation_jobs")
-      .select("*")
+      .select("id, order_id")
       .eq("status", "Queued")
       .order("id", { ascending: true })
-      .limit(1)
-      .single();
+      .limit(1);
 
-    if (queuedJobError) {
-      console.error("Failed to load queued automation job", queuedJobError);
+    if (queuedJobsResult.error) {
+      console.error("Failed to load queued automation job", queuedJobsResult.error);
       return NextResponse.json(
         {
           success: false,
           error: "Failed to load queued automation job.",
-          details: queuedJobError.message,
+          details: queuedJobsResult.error.message,
         },
         { status: 500 }
       );
     }
 
-    if (!queuedJob) {
+    const job = Array.isArray(queuedJobsResult.data)
+      ? (queuedJobsResult.data[0] as { id: number; order_id: number | string } | null)
+      : null;
+
+    if (!job) {
       return NextResponse.json({
-        success: false,
-        message: "No queued jobs.",
+        success: true,
+        message: "No queued jobs",
       });
     }
 
-    const { data: orderRecord, error: orderError } = await supabase
+    const orderResult = await supabase
       .from("orders")
-      .select("*")
-      .eq("id", queuedJob.order_id)
-      .single();
+      .select("id, service_id, link, quantity, provider_id, provider_order_id, status, progress")
+      .eq("id", job.order_id)
+      .limit(1);
 
-    if (orderError || !orderRecord) {
-      console.error("Order lookup failed", orderError || "Missing order");
+    if (orderResult.error) {
+      console.error("Failed to load order", orderResult.error);
+      await markJobFailed(supabase, job.id, null, "Order not found");
       return NextResponse.json(
         {
           success: false,
-          error: "Order not found.",
+          error: "Order not found",
         },
         { status: 404 }
       );
     }
 
-    const { data: serviceRecord, error: serviceError } = await supabase
-      .from("services")
-      .select("provider_service_id")
-      .eq("id", orderRecord.service_id)
-      .single();
+    const order = Array.isArray(orderResult.data)
+      ? (orderResult.data[0] as {
+          id: number;
+          service_id: number | string | null;
+          link: string | null;
+          quantity: number | string | null;
+          provider_id: number | string | null;
+          provider_order_id: string | null;
+          status: string | null;
+          progress: number | null;
+        } | null)
+      : null;
 
-    const serviceLookupValues = {
-      orderServiceId: orderRecord.service_id,
-      serviceRecord,
-      serviceError,
-      providerServiceId:
-        serviceRecord?.provider_service_id ?? null,
-    };
-
-    if (
-      serviceError ||
-      !serviceRecord ||
-      serviceRecord.provider_service_id == null ||
-      String(serviceRecord.provider_service_id).trim() === "" ||
-      String(serviceRecord.provider_service_id).trim() === "0"
-    ) {
-      const errorMessage =
-        serviceError?.message || "Missing provider_service_id for local service.";
-      console.error("Service lookup failed", serviceLookupValues);
-
-      const { error: failJobError } = await supabase
-        .from("automation_jobs")
-        .update({
-          status: "Failed",
-          progress: 0,
-          error: errorMessage,
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", queuedJob.id);
-
-      if (failJobError) {
-        console.error("Failed to mark automation job failed", failJobError);
-      }
-
-      const { error: failOrderError } = await supabase
-        .from("orders")
-        .update({
-          status: "Failed",
-        })
-        .eq("id", orderRecord.id);
-
-      if (failOrderError) {
-        console.error("Failed to mark order failed", failOrderError);
-      }
-
+    if (!order) {
+      await markJobFailed(supabase, job.id, null, "Order not found");
       return NextResponse.json(
         {
           success: false,
-          error: errorMessage,
+          error: "Order not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    const serviceResult = await supabase
+      .from("services")
+      .select("id, provider_service_id, name")
+      .eq("id", order.service_id)
+      .limit(1);
+
+    if (serviceResult.error) {
+      console.error("Failed to load service", serviceResult.error);
+      await markJobFailed(supabase, job.id, order.id, "Service mapping missing.");
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Service mapping missing.",
         },
         { status: 400 }
       );
     }
 
-    const { data: providerRecord, error: providerError } = await supabase
+    const service = Array.isArray(serviceResult.data)
+      ? (serviceResult.data[0] as {
+          id: number;
+          provider_service_id: number | string | null;
+          name: string | null;
+        } | null)
+      : null;
+
+    console.log("ORDER", order);
+    console.log("SERVICE", service);
+    console.log("provider_service_id", service?.provider_service_id);
+
+    if (!service || service.provider_service_id === null || service.provider_service_id === undefined) {
+      await markJobFailed(supabase, job.id, order.id, "Service mapping missing.");
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Service mapping missing.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const providerResult = await supabase
       .from("providers")
       .select("id, api_key, api_url")
       .eq("status", "Active")
-      .order("priority")
-      .limit(1)
-      .single();
+      .order("priority", { ascending: true })
+      .limit(1);
 
-    if (providerError || !providerRecord || !providerRecord.api_key || !providerRecord.api_url) {
-      console.error("Provider lookup failed", providerError || providerRecord);
-
-      await supabase
-        .from("automation_jobs")
-        .update({
-          status: "Failed",
-          progress: 0,
-          error: "No active provider available.",
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", queuedJob.id);
-
-      await supabase
-        .from("orders")
-        .update({
-          status: "Failed",
-        })
-        .eq("id", orderRecord.id);
-
+    if (providerResult.error) {
+      console.error("Failed to load provider", providerResult.error);
+      await markJobFailed(supabase, job.id, order.id, "No active provider available.");
       return NextResponse.json(
         {
           success: false,
@@ -145,82 +186,68 @@ export async function GET() {
       );
     }
 
-    const { error: processingJobError } = await supabase
-      .from("automation_jobs")
-      .update({
-        status: "Processing",
-        progress: 20,
-        started_at: new Date().toISOString(),
-      })
-      .eq("id", queuedJob.id);
+    const provider = Array.isArray(providerResult.data)
+      ? (providerResult.data[0] as { id: number; api_key: string | null; api_url: string | null } | null)
+      : null;
 
-    if (processingJobError) {
-      console.error("Failed to mark automation job processing", processingJobError);
+    if (!provider || !provider.api_key || !provider.api_url) {
+      await markJobFailed(supabase, job.id, order.id, "No active provider available.");
       return NextResponse.json(
         {
           success: false,
-          error: "Failed to update job status.",
+          error: "No active provider available.",
         },
-        { status: 500 }
+        { status: 400 }
       );
     }
 
-    const { error: processingOrderError } = await supabase
-      .from("orders")
-      .update({
-        status: "Processing",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", orderRecord.id);
+    await supabase.from("automation_jobs").update({
+      status: "Processing",
+      progress: 20,
+      started_at: new Date().toISOString(),
+    }).eq("id", job.id);
 
-    if (processingOrderError) {
-      console.error("Failed to mark order processing", processingOrderError);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to update order status.",
-        },
-        { status: 500 }
-      );
-    }
+    await supabase.from("orders").update({
+      status: "Processing",
+      updated_at: new Date().toISOString(),
+    }).eq("id", order.id);
 
     const body = new URLSearchParams();
-    body.append("key", providerRecord.api_key);
+    body.append("key", provider.api_key);
     body.append("action", "add");
-    body.append("service", String(serviceRecord.provider_service_id));
-    body.append("link", String(orderRecord.link || ""));
-    body.append("quantity", String(orderRecord.quantity));
+    body.append("service", String(service.provider_service_id));
+    body.append("link", String(order.link ?? ""));
+    body.append("quantity", String(order.quantity ?? ""));
 
-    const response = await fetch(providerRecord.api_url, {
-      method: "POST",
-      body,
-    });
-
-    const responseText = await response.text();
-    let providerResult: any;
+    let response: Response;
 
     try {
-      providerResult = JSON.parse(responseText);
-    } catch (parseError) {
-      console.error("Failed to parse JAP response", parseError, responseText);
+      response = await fetch(provider.api_url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body,
+      });
+    } catch (networkError) {
+      await markJobFailed(supabase, job.id, order.id, "Network error");
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Network error",
+          details: networkError instanceof Error ? networkError.message : String(networkError),
+        },
+        { status: 502 }
+      );
+    }
 
-      await supabase
-        .from("automation_jobs")
-        .update({
-          status: "Failed",
-          progress: 0,
-          error: "Invalid provider response.",
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", queuedJob.id);
+    const responseText = await response.text();
+    let providerPayload: unknown = null;
 
-      await supabase
-        .from("orders")
-        .update({
-          status: "Failed",
-        })
-        .eq("id", orderRecord.id);
-
+    try {
+      providerPayload = JSON.parse(responseText);
+    } catch {
+      await markJobFailed(supabase, job.id, order.id, "Invalid provider response.");
       return NextResponse.json(
         {
           success: false,
@@ -231,93 +258,65 @@ export async function GET() {
       );
     }
 
-    if (!response.ok || providerResult?.error || !providerResult?.order) {
-      const providerErrorMessage =
-        providerResult?.error || `Provider request failed with status ${response.status}`;
-      console.error("JAP order failed", providerErrorMessage, providerResult);
+    const providerErrorMessage = normalizeProviderError(
+      (providerPayload as { error?: unknown; message?: unknown } | null)?.error ??
+      (providerPayload as { error?: unknown; message?: unknown } | null)?.message
+    );
 
-      await supabase
-        .from("automation_jobs")
-        .update({
-          status: "Failed",
-          progress: 0,
-          error: providerErrorMessage,
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", queuedJob.id);
-
-      await supabase
-        .from("orders")
-        .update({
-          status: "Failed",
-        })
-        .eq("id", orderRecord.id);
-
+    if (!response.ok || providerErrorMessage || !providerPayload || typeof providerPayload !== "object") {
+      const errorMessage = providerErrorMessage ?? `Provider request failed with status ${response.status}`;
+      await markJobFailed(supabase, job.id, order.id, errorMessage);
       return NextResponse.json(
         {
           success: false,
-          error: providerErrorMessage,
-          provider_response: providerResult,
+          error: errorMessage,
+          provider_response: providerPayload,
         },
         { status: 502 }
       );
     }
 
-    const { error: completeOrderError } = await supabase
-      .from("orders")
-      .update({
-        provider_id: providerRecord.id,
-        provider_order_id: String(providerResult.order),
-        status: "Completed",
-        progress: 100,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", orderRecord.id);
+    const payload = providerPayload as { order?: unknown };
 
-    if (completeOrderError) {
-      console.error("Failed to complete order", completeOrderError);
+    if (payload.order === undefined || payload.order === null || payload.order === "") {
+      await markJobFailed(supabase, job.id, order.id, "Invalid provider response.");
       return NextResponse.json(
         {
           success: false,
-          error: "Failed to save provider order info.",
+          error: "Invalid provider response.",
+          provider_response: providerPayload,
         },
-        { status: 500 }
+        { status: 502 }
       );
     }
 
-    const { error: completeJobError } = await supabase
-      .from("automation_jobs")
-      .update({
-        status: "Completed",
-        progress: 100,
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", queuedJob.id);
+    const providerOrderId = String(payload.order);
 
-    if (completeJobError) {
-      console.error("Failed to complete automation job", completeJobError);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to complete automation job.",
-        },
-        { status: 500 }
-      );
-    }
+    await supabase.from("orders").update({
+      provider_id: provider.id,
+      provider_order_id: providerOrderId,
+      status: "Processing",
+      progress: 25,
+      updated_at: new Date().toISOString(),
+    }).eq("id", order.id);
+
+    await supabase.from("automation_jobs").update({
+      status: "Completed",
+      progress: 100,
+      completed_at: new Date().toISOString(),
+    }).eq("id", job.id);
 
     return NextResponse.json({
       success: true,
-      provider_order: providerResult.order,
-      provider_id: providerRecord.id,
+      provider_order_id: providerOrderId,
     });
-  } catch (err) {
-    console.error("Worker exception", err);
-
+  } catch (error) {
+    console.error("Worker exception", error);
     return NextResponse.json(
       {
         success: false,
         error: "Worker Failed",
-        details: err instanceof Error ? err.message : String(err),
+        details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );
