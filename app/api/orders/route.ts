@@ -179,6 +179,27 @@ export async function POST(req: Request) {
     }
 
     // =====================================
+    // IMMEDIATE WORKER TRIGGER
+    // =====================================
+
+    try {
+      const workerUrl = process.env.NEXT_PUBLIC_SITE_URL
+        ? `${process.env.NEXT_PUBLIC_SITE_URL}/api/worker`
+        : null;
+
+      if (workerUrl) {
+        await fetch(workerUrl, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${process.env.WORKER_SECRET || ""}`,
+          },
+        });
+      }
+    } catch (workerError) {
+      console.error("Failed to trigger worker", workerError);
+    }
+
+    // =====================================
     // NOTIFICATION
     // =====================================
 

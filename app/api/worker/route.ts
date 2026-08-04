@@ -50,8 +50,21 @@ async function markJobFailed(
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const workerSecret = process.env.WORKER_SECRET;
+    const authHeader = request.headers.get("authorization");
+
+    if (workerSecret && authHeader !== `Bearer ${workerSecret}`) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized",
+        },
+        { status: 401 }
+      );
+    }
+
     const supabase = adminClient;
 
     const queuedJobsResult = await supabase
@@ -262,6 +275,29 @@ export async function GET() {
       (providerPayload as { error?: unknown; message?: unknown } | null)?.error ??
       (providerPayload as { error?: unknown; message?: unknown } | null)?.message
     );
+
+    if (providerErrorMessage && providerErrorMessage.toLowerCase().includes("not enough funds")) {
+      await supabase.from("automation_jobs").update({
+        status: "Failed",
+        progress: 0,
+        error: "Provider has insufficient balance",
+        completed_at: new Date().toISOString(),
+      }).eq("id", job.id);
+
+      await supabase.from("orders").update({
+        status: "Failed",
+        updated_at: new Date().toISOString(),
+      }).eq("id", order.id);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Provider has insufficient balance",
+          provider_response: providerPayload,
+        },
+        { status: 502 }
+      );
+    }
 
     if (!response.ok || providerErrorMessage || !providerPayload || typeof providerPayload !== "object") {
       const errorMessage = providerErrorMessage ?? `Provider request failed with status ${response.status}`;
