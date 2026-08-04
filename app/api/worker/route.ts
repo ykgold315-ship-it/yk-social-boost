@@ -66,7 +66,13 @@ export async function GET(request: Request) {
     }
 
     const supabase = adminClient;
+const test = await supabase
+  .from("services")
+  .select("*")
+  .eq("id", 4)
+  .single();
 
+console.log("TEST SERVICE:", test);
     const queuedJobsResult = await supabase
       .from("automation_jobs")
       .select("id, order_id")
