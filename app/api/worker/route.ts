@@ -139,42 +139,70 @@ export async function GET(request: Request) {
       );
     }
 
-    const serviceResult = await supabase
+    const {
+      data: service,
+      error: serviceError,
+    } = await supabase
       .from("services")
-      .select("id, provider_service_id, name")
+      .select("*")
       .eq("id", order.service_id)
-      .limit(1);
+      .single();
 
-    if (serviceResult.error) {
-      console.error("Failed to load service", serviceResult.error);
-      await markJobFailed(supabase, job.id, order.id, "Service mapping missing.");
+    console.log("ORDER SERVICE ID:", order.service_id);
+    console.log("SERVICE:", service);
+    console.log("SERVICE ERROR:", serviceError);
+
+    if (serviceError) {
+      console.error(serviceError);
+
+      await markJobFailed(
+        supabase,
+        job.id,
+        order.id,
+        serviceError.message
+      );
+
       return NextResponse.json(
         {
           success: false,
-          error: "Service mapping missing.",
+          error: serviceError.message,
         },
-        { status: 400 }
+        { status: 500 }
       );
     }
 
-    const service = Array.isArray(serviceResult.data)
-      ? (serviceResult.data[0] as {
-          id: number;
-          provider_service_id: number | string | null;
-          name: string | null;
-        } | null)
-      : null;
+    if (!service) {
+      await markJobFailed(
+        supabase,
+        job.id,
+        order.id,
+        "Service not found."
+      );
 
-    console.log("ORDER", order);
-    console.log("SERVICE", service);
-    console.log("provider_service_id", service?.provider_service_id);
-
-    if (!service || service.provider_service_id === null || service.provider_service_id === undefined) {
-      await markJobFailed(supabase, job.id, order.id, "Service mapping missing.");
       return NextResponse.json(
         {
           success: false,
-          error: "Service mapping missing.",
+          error: "Service not found.",
+        },
+        { status: 404 }
+      );
+    }
+
+    if (
+      service.provider_service_id === null ||
+      service.provider_service_id === undefined
+    ) {
+      await markJobFailed(
+        supabase,
+        job.id,
+        order.id,
+        "provider_service_id is NULL"
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "provider_service_id is NULL",
         },
         { status: 400 }
       );
