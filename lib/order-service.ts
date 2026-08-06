@@ -172,20 +172,20 @@ const servicePrice =
     return { error: `Failed to create order: ${orderError?.message}` };
   }
 
-  const { error: jobError } = await supabase
-    .from("automation_jobs")
-    .insert({
-      order_id: order.id,
-      user_id: order.user_id,
-      service_id: order.service_id,
-      status: "Queued",
-      progress: 0,
-      started_at: null,
-      completed_at: null,
-      error: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+const { error: jobError } = await supabase
+  .from("automation_jobs")
+  .insert({
+    order_id: order.id,
+    user_id: order.user_id,
+    service_id: order.service_id,
+    status: "Queued",
+    progress: 0,
+    worker: null,
+    started_at: null,
+    completed_at: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  });
 
   if (jobError) {
     return { error: `Failed to create automation job: ${jobError.message}` };
@@ -331,13 +331,11 @@ async function processJob(jobId: number, orderId: number): Promise<WorkerResult>
   }).eq("id", order.id);
 
   await supabase.from("automation_jobs").update({
-    status: "Completed",
-    progress: 100,
-    completed_at: new Date().toISOString(),
-    error: null,
-    updated_at: new Date().toISOString(),
-  }).eq("id", jobId);
-
+  status: "Completed",
+  progress: 100,
+  completed_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+}).eq("id", jobId);
   return {
     success: true,
     provider_order_id: providerResult.providerOrderId,
@@ -352,16 +350,23 @@ async function markJobFailed(
 ) {
   const supabase = await createClient();
 
-  await supabase.from("automation_jobs").update({
-    status: "Failed",
-    progress: 0,
-    error: errorMessage,
-    completed_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }).eq("id", jobId);
+  console.error("Worker failed:", errorMessage);
 
-  await supabase.from("orders").update({
-    status: "Failed",
-    updated_at: new Date().toISOString(),
-  }).eq("id", orderId);
+  await supabase
+    .from("automation_jobs")
+    .update({
+      status: "Failed",
+      progress: 0,
+      completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId);
+
+  await supabase
+    .from("orders")
+    .update({
+      status: "Failed",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId);
 }
