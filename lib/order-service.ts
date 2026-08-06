@@ -108,10 +108,13 @@ export async function createOrder(
     };
   }
 
-  const servicePrice =
-    service.selling_price != null
-      ? Number(service.selling_price)
-      : Number(service.price);
+ const sellingPrice = Number(service.selling_price || 0);
+const basePrice = Number(service.price || 0);
+
+const servicePrice =
+  sellingPrice > 0
+    ? sellingPrice
+    : basePrice;
 
   if (Number.isNaN(servicePrice) || servicePrice <= 0) {
     return {
